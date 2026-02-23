@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>玖拾体育抢票助手 - 全看台监控</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --success: #10b981;
+            --bg: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-sub: #6b7280;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; color: var(--text-main); }
+        .container { width: 100%; max-width: 600px; background: var(--card-bg); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); overflow: hidden; }
+        
+        /* 头部 */
+        .header { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; padding: 25px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; font-weight: 700; }
+        .header p { margin: 5px 0 0; opacity: 0.9; font-size: 14px; }
+
+        /* 控制区 */
+        .controls { display: flex; gap: 10px; padding: 20px; border-bottom: 1px solid #eee; background: #fff; justify-content: center; }
+        .btn { padding: 12px 30px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 5px; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-start { background: var(--success); color: white; }
+        .btn-start:hover:not(:disabled) { background: #059669; transform: translateY(-1px); }
+        .btn-stop { background: #ef4444; color: white; }
+        .btn-stop:hover:not(:disabled) { background: #dc2626; }
+        
+        /* 票务列表 */
+        .ticket-list { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+        .ticket-item { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 15px 20px; background: #f9fafb; border-radius: 12px; border: 1px solid #e5e7eb; transition: 0.3s;
+        }
+        
+        /* 有票时的样式 */
+        .ticket-item.active { 
+            background: #d1fae5; border-color: #34d399; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2); 
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
+
+        .info { display: flex; flex-direction: column; }
+        .name { font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .price { font-size: 12px; background: #e5e7eb; padding: 2px 6px; border-radius: 4px; color: #4b5563; font-weight: normal; }
+        .count-badge { font-size: 13px; color: var(--text-sub); margin-top: 4px; }
+        
+        .ticket-item.active .count-badge { color: #047857; font-weight: bold; }
+        
+        .action-btn { 
+            text-decoration: none; background: #e5e7eb; color: #9ca3af; 
+            padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: 600; 
+            pointer-events: none; transition: 0.2s; 
+        }
+        
+        .ticket-item.active .action-btn { 
+            background: var(--primary); color: white; pointer-events: auto; cursor: pointer;
+            box-shadow: 0 2px 5px rgba(37, 99, 235, 0.3);
+        }
+        .ticket-item.active .action-btn:hover { background: #1d4ed8; }
+
+        /* 日志区 */
+        .log-area { background: #111827; color: #34d399; padding: 15px; margin: 0 20px 20px; border-radius: 10px; font-family: monospace; font-size: 12px; height: 150px; overflow-y: auto; }
+        .log-line { margin-bottom: 4px; border-bottom: 1px solid #1f2937; padding-bottom: 2px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>🎫 全看台抢票助手</h1>
+        <p>A / B / H / K 实时监控中</p>
+    </div>
+
+    <div class="controls">
+        <button id="startBtn" class="btn btn-start" onclick="sendAction('start')">▶ 启动监控</button>
+        <button id="stopBtn" class="btn btn-stop" onclick="sendAction('stop')" disabled>⏹ 停止监控</button>
+    </div>
+
+    <div class="ticket-list">
+        <!-- A上 -->
+        <div class="ticket-item" id="row-A_TOP">
+            <div class="info">
+                <div class="name">周六 A上 <span class="price">$990</span></div>
+                <div class="count-badge" id="count-A_TOP">等待扫描...</div>
+            </div>
+            <a href="https://ztmen.jussyun.com/booking/693133c84996310001244e59?from=content&isFree=false" target="_blank" class="action-btn">去抢票</a>
+        </div>
+
+        <!-- A下 -->
+        <div class="ticket-item" id="row-A_BOTTOM">
+            <div class="info">
+                <div class="name">周六 A下 <span class="price">$780</span></div>
+                <div class="count-badge" id="count-A_BOTTOM">等待扫描...</div>
+            </div>
+            <a href="https://ztmen.jussyun.com/booking/693133c84996310001244e59?from=content&isFree=false" target="_blank" class="action-btn">去抢票</a>
+        </div>
+
+        <!-- B -->
+        <div class="ticket-item" id="row-B">
+            <div class="info">
+                <div class="name">周六 B看台 <span class="price">$740</span></div>
+                <div class="count-badge" id="count-B">等待扫描...</div>
+            </div>
+            <a href="https://ztmen.jussyun.com/booking/693132f64996310001244995?from=content&isFree=false" target="_blank" class="action-btn">去抢票</a>
+        </div>
+
+        <!-- H -->
+        <div class="ticket-item" id="row-H">
+            <div class="info">
+                <div class="name">周六 H看台 <span class="price">$660</span></div>
+                <div class="count-badge" id="count-H">等待扫描...</div>
+            </div>
+            <a href="https://ztmen.jussyun.com/booking/6931529204da960001255be6?from=content&isFree=false" target="_blank" class="action-btn">去抢票</a>
+        </div>
+
+        <!-- K -->
+        <div class="ticket-item" id="row-K">
+            <div class="info">
+                <div class="name">周六 K看台 <span class="price">$660</span></div>
+                <div class="count-badge" id="count-K">等待扫描...</div>
+            </div>
+            <a href="https://ztmen.jussyun.com/booking/693152ad04da960001255d56?from=content&isFree=false" target="_blank" class="action-btn">去抢票</a>
+        </div>
+    </div>
+
+    <div class="log-area" id="log-window">
+        <div>系统就绪...</div>
+    </div>
+    <div style="text-align: center; color: #9ca3af; font-size: 12px; margin-bottom: 15px;">最后更新: <span id="last-update">-</span></div>
+</div>
+
+<script>
+    const socket = io();
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const logDiv = document.getElementById('log-window');
+
+    // 发送指令
+    function sendAction(action) {
+        socket.emit(action);
+    }
+
+    // 接收运行状态
+    socket.on('status', (isRunning) => {
+        if (isRunning) {
+            startBtn.disabled = true;
+            startBtn.innerHTML = "监控运行中...";
+            stopBtn.disabled = false;
+        } else {
+            startBtn.disabled = false;
+            startBtn.innerHTML = "▶ 启动监控";
+            stopBtn.disabled = true;
+        }
+    });
+
+    // 接收详细数据并更新 UI (核心逻辑)
+    socket.on('data_update', (data) => {
+        // data 格式: { "A_TOP": 0, "B": 2 ... }
+        updateRow('A_TOP', data['A_TOP']);
+        updateRow('A_BOTTOM', data['A_BOTTOM']);
+        updateRow('B', data['B']);
+        updateRow('H', data['H']);
+        updateRow('K', data['K']);
+        
+        document.getElementById('last-update').innerText = new Date().toLocaleTimeString();
+    });
+
+    function updateRow(key, count) {
+        const row = document.getElementById(`row-${key}`);
+        const badge = document.getElementById(`count-${key}`);
+        
+        if (count > 0) {
+            // 有票：变绿、激活按钮
+            row.classList.add('active');
+            badge.innerText = `🔥 现有 ${count} 张余票！`;
+        } else {
+            // 无票：恢复原样
+            row.classList.remove('active');
+            badge.innerText = "暂无余票 (扫描中...)";
+        }
+    }
+
+    // 日志显示
+    socket.on('log', (msg) => {
+        const p = document.createElement('div');
+        p.className = 'log-line';
+        p.innerText = msg;
+        logDiv.appendChild(p);
+        logDiv.scrollTop = logDiv.scrollHeight;
+    });
+
+    // 弹窗报警
+    socket.on('ticket_alert', (msg) => {
+        // 浏览器强提醒
+        alert(`🎉 抢票提醒：\n${msg}\n\n请点击对应看台的“去抢票”按钮！`);
+    });
+
+</script>
+
+</body>
+</html>
