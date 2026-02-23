@@ -1,0 +1,10 @@
+# 忽略依赖包文件夹
+node_modules/
+
+# 忽略系统生成的文件
+.DS_Store
+Thumbs.db
+
+# 忽略日志文件
+*.log
+
